@@ -1,6 +1,20 @@
+# NB!
+
+This module is a fork of (mongo-cursor-pagination)[https://github.com/mixmaxhq/mongo-cursor-pagination] by MixMax. The fork was needed to keep supporting
+Node.js v6 as the upstream version started using async..await.
+
+Use the following command to install this module:
+
+    npm install mongo-cursor-pagination-node6 --save
+
+And then in your code:
+
+    const MongoPaging = require('mongo-cursor-pagination-node6');
+
 # mongo-cursor-pagination
 
-This module aids in implementing "cursor-based" pagination using Mongo range queries or relevancy-based search results. __This module is currently used in production for the [Mixmax API](https://developer.mixmax.com) to return millions of results a day__.
+This module aids in implementing "cursor-based" pagination using Mongo range queries or relevancy-based search results. **This module is currently used in
+production for the [Mixmax API](https://developer.mixmax.com) to return millions of results a day**.
 
 ## Background
 
@@ -8,11 +22,16 @@ See this [blog post](https://mixmax.com/blog/api-paging-built-the-right-way) for
 
 API Pagination is typically implemented one of two different ways:
 
-1. Offset-based paging. This is traditional paging where `skip` and `limit` parameters are passed on the url (or some variation such as `page_num` and `count`). The API would return the results and some indication of whether there is a next page, such as `has_more` on the response. An issue with this approach is that it assumes a static data set; if collection changes while querying, then results in pages will shift and the response will be wrong.
+1. Offset-based paging. This is traditional paging where `skip` and `limit` parameters are passed on the url (or some variation such as `page_num` and `count`).
+   The API would return the results and some indication of whether there is a next page, such as `has_more` on the response. An issue with this approach is that
+   it assumes a static data set; if collection changes while querying, then results in pages will shift and the response will be wrong.
 
-2. Cursor-based paging. An improved way of paging where an API passes back a "cursor" (an opaque string) to tell the caller where to query the next or previous pages. The cursor is usually passed using query parameters `next` and `previous`. It's implementation is typically more performant that skip/limit because it can jump to any page without traversing all the records. It also handles records being added or removed because it doesn't use fixed offsets.
+2. Cursor-based paging. An improved way of paging where an API passes back a "cursor" (an opaque string) to tell the caller where to query the next or previous
+   pages. The cursor is usually passed using query parameters `next` and `previous`. It's implementation is typically more performant that skip/limit because it
+   can jump to any page without traversing all the records. It also handles records being added or removed because it doesn't use fixed offsets.
 
-This module helps in implementing #2 - cursor based paging - by providing a method that make it easy to query within a Mongo collection. It also helps by returning a url-safe string that you can return with your HTTP response (see example below).
+This module helps in implementing #2 - cursor based paging - by providing a method that make it easy to query within a Mongo collection. It also helps by
+returning a url-safe string that you can return with your HTTP response (see example below).
 
 Here are some examples of cursor-based APIs:
 
@@ -64,32 +83,46 @@ var MongoClient = require('mongodb').MongoClient;
 var MongoPaging = require('mongo-cursor-pagination');
 
 MongoClient.connect('mongodb://localhost:27017/mydb', (err, db) => {
-  db.collection('myobjects').insertMany([{
-    counter: 1
-  }, {
-    counter: 2
-  }, {
-    counter: 3
-  }, {
-    counter: 4
-  }], (err) => {
+    db.collection('myobjects').insertMany(
+        [
+            {
+                counter: 1
+            },
+            {
+                counter: 2
+            },
+            {
+                counter: 3
+            },
+            {
+                counter: 4
+            }
+        ],
+        err => {
+            // Query the first page.
+            MongoPaging.find(
+                db.collection('myobjects'),
+                {
+                    limit: 2
+                },
+                (err, result) => {
+                    console.log(result);
 
-    // Query the first page.
-    MongoPaging.find(db.collection('myobjects'), {
-      limit: 2
-    }, (err, result) => {
-      console.log(result);
-
-      // Query next page.
-      MongoPaging.find(db.collection('myobjects'), {
-        limit: 2,
-        next: result.next // This queries the next page
-      }, (err, result) => {
-        console.log(result);
-      });
-
-    });
-  });
+                    // Query next page.
+                    MongoPaging.find(
+                        db.collection('myobjects'),
+                        {
+                            limit: 2,
+                            next: result.next // This queries the next page
+                        },
+                        (err, result) => {
+                            console.log(result);
+                        }
+                    );
+                }
+            );
+        }
+    );
 });
 ```
 
@@ -111,7 +144,8 @@ page 2 { results:
 
 ### search()
 
-Search uses Mongo's [text search](https://docs.mongodb.com/v3.2/text-search/) feature and will return paged results ordered by search relevancy. As such, and unlike `find()`, it does not take a `paginatedField` parameter.
+Search uses Mongo's [text search](https://docs.mongodb.com/v3.2/text-search/) feature and will return paged results ordered by search relevancy. As such, and
+unlike `find()`, it does not take a `paginatedField` parameter.
 
 ```
    Performs a search query on a Mongo collection and pages the results. This is different from
@@ -140,38 +174,55 @@ var MongoClient = require('mongodb').MongoClient;
 var MongoPaging = require('mongo-cursor-pagination');
 
 MongoClient.connect('mongodb://localhost:27017/mydb', (err, db) => {
-  db.collection('myobjects').ensureIndex({
-    mytext: 'text'
-  }, (err) => {
-
-    db.collection('myobjects').insertMany([{
-      mytext: 'dogs'
-    }, {
-      mytext: 'dogs cats'
-    }, {
-      mytext: 'dogs cats pigs'
-    }], (err) => {
-
-      // Query the first page.
-      MongoPaging.search(db.collection('myobjects'), 'dogs', {
-        fields: {
-          mytext: 1
+    db.collection('myobjects').ensureIndex(
+        {
+            mytext: 'text'
         },
-        limit: 2
-      }, (err, result) => {
-        console.log(result);
+        err => {
+            db.collection('myobjects').insertMany(
+                [
+                    {
+                        mytext: 'dogs'
+                    },
+                    {
+                        mytext: 'dogs cats'
+                    },
+                    {
+                        mytext: 'dogs cats pigs'
+                    }
+                ],
+                err => {
+                    // Query the first page.
+                    MongoPaging.search(
+                        db.collection('myobjects'),
+                        'dogs',
+                        {
+                            fields: {
+                                mytext: 1
+                            },
+                            limit: 2
+                        },
+                        (err, result) => {
+                            console.log(result);
 
-        // Query next page.
-        MongoPaging.search(db.collection('myobjects'), 'dogs', {
-          limit: 2,
-          next: result.next // This queries the next page
-        }, (err, result) => {
-          console.log(result);
-        });
-
-      });
-    });
-  });
+                            // Query next page.
+                            MongoPaging.search(
+                                db.collection('myobjects'),
+                                'dogs',
+                                {
+                                    limit: 2,
+                                    next: result.next // This queries the next page
+                                },
+                                (err, result) => {
+                                    console.log(result);
+                                }
+                            );
+                        }
+                    );
+                }
+            );
+        }
+    );
 });
 ```
 
@@ -188,31 +239,37 @@ page 2 { results:
 
 ### Use with ExpressJS
 
-A popular use of this module is with Express to implement a basic API. As a convenience for this use-case, this library exposes a `findWithReq` function that takes the request object from your Express middleware and returns results:
+A popular use of this module is with Express to implement a basic API. As a convenience for this use-case, this library exposes a `findWithReq` function that
+takes the request object from your Express middleware and returns results:
 
 So this code using `find()`:
 
 ```js
 router.get('/myobjects', (req, res, next) => {
-  MongoPaging.find(db.collection('myobjects'), {
-    query: {
-      userId: req.user._id
-    },
-    paginatedField: 'created',
-    fields: { // Also need to read req.query.fields to use to filter these fields
-      _id: 1,
-      created: 1
-    },
-    limit: req.query.limit, // Also need to cap this to 25
-    next: req.query.next,
-    previous: req.query.previous,
-  }, function(err, result) {
-    if (err) {
-      next(err);
-    } else {
-      res.json(result);
-    }
-  });
+    MongoPaging.find(
+        db.collection('myobjects'),
+        {
+            query: {
+                userId: req.user._id
+            },
+            paginatedField: 'created',
+            fields: {
+                // Also need to read req.query.fields to use to filter these fields
+                _id: 1,
+                created: 1
+            },
+            limit: req.query.limit, // Also need to cap this to 25
+            next: req.query.next,
+            previous: req.query.previous
+        },
+        function(err, result) {
+            if (err) {
+                next(err);
+            } else {
+                res.json(result);
+            }
+        }
+    );
 });
 ```
 
@@ -220,35 +277,44 @@ Is more elegant with `findWithReq()`:
 
 ```js
 router.get('/myobjects', (req, res, next) => {
-  MongoPaging.findWithReq(req, db.collection('myobjects'), {
-    query: {
-      userId: req.user._id
-    },
-    paginatedField: 'created',
-    fields: {
-      _id: 1,
-      created: 1
-    },
-    limit: 25 // Upper limit
-  }, function(err, result) {
-    if (err) {
-      next(err);
-    } else {
-      res.json(result);
-    }
-  });
+    MongoPaging.findWithReq(
+        req,
+        db.collection('myobjects'),
+        {
+            query: {
+                userId: req.user._id
+            },
+            paginatedField: 'created',
+            fields: {
+                _id: 1,
+                created: 1
+            },
+            limit: 25 // Upper limit
+        },
+        function(err, result) {
+            if (err) {
+                next(err);
+            } else {
+                res.json(result);
+            }
+        }
+    );
 });
 ```
 
-`findWithReq()` also handles basic security such as making sure the `limit` and `fields` requested on the URL are within the allowed values you specify in `params`.
+`findWithReq()` also handles basic security such as making sure the `limit` and `fields` requested on the URL are within the allowed values you specify in
+`params`.
 
 ### Number of results
 
-If the `limit` parameter isn't passed, then this library will default to returning 50 results. This can be overridden by setting `mongoPaging.config.DEFAULT_LIMIT = <new default limit>;`. Regardless of the `limit` passed in, a maximum of 300 documents will be returned. This can be overridden by setting `mongoPaging.config.MAX_LIMIT = <new max limit>;`.
+If the `limit` parameter isn't passed, then this library will default to returning 50 results. This can be overridden by setting
+`mongoPaging.config.DEFAULT_LIMIT = <new default limit>;`. Regardless of the `limit` passed in, a maximum of 300 documents will be returned. This can be
+overridden by setting `mongoPaging.config.MAX_LIMIT = <new max limit>;`.
 
 ### Indexes for sorting
 
-`mongo-cursor-pagination` uses `_id` as a secondary sorting field when providing a `paginatedField` property. It is recommended that you have an index for optimal performance. Example:
+`mongo-cursor-pagination` uses `_id` as a secondary sorting field when providing a `paginatedField` property. It is recommended that you have an index for
+optimal performance. Example:
 
 ```
 MongoPaging.find(db.people, {
@@ -276,23 +342,29 @@ To run tests, you first must [start a Mongo server on port 27017](https://mongod
 
 ## Changelog
 
-* 5.0.0 Now `50` results are returned by default, and up to `300` results can be returned if the `limit` parameter is used. These can be overridden by setting `mongoPaging.config.DEFAULT_LIMIT` and `mongoPaging.config.MAX_LIMIT` respectively.
+* 5.0.0 Now `50` results are returned by default, and up to `300` results can be returned if the `limit` parameter is used. These can be overridden by setting
+  `mongoPaging.config.DEFAULT_LIMIT` and `mongoPaging.config.MAX_LIMIT` respectively.
 
 * 4.1.1 Fixed bug that would overwrite `$or` in queries passed in.
 
 * 4.1.0 Adds `sortAscending` option to sort by the `paginatedField` ascending. Defaults to false (existing behavior).
 
-* 4.0.0 Breaking API change: `next` and `previous` attributes are now always returned with every response (in case the client wants to poll for new changes). New attributes `hasPrevious` and `hasNext` should now be used know if there are more results in the previous or next page. Before the change, `next` and `previously` could not be replied upon to know if there were more pages.
+* 4.0.0 Breaking API change: `next` and `previous` attributes are now always returned with every response (in case the client wants to poll for new changes).
+  New attributes `hasPrevious` and `hasNext` should now be used know if there are more results in the previous or next page. Before the change, `next` and
+  `previously` could not be replied upon to know if there were more pages.
 
 * 3.1.1 Don't use `let` for backwards compatibility.
 
-* 3.1.0 `findInReq()` now accepts dot notation for fields. So you can pass `?fields=users.userId` to only turn the `userId` property for `users` in the response.
+* 3.1.0 `findInReq()` now accepts dot notation for fields. So you can pass `?fields=users.userId` to only turn the `userId` property for `users` in the
+  response.
 
 * 3.0.1 Fixed bug where the _id field was always returned when a paginatedField was used.
 
 * 3.0.0 Breaking API change: `find()` no longer accepts a string for `limit`. Added `findWithReq`.
 
-* 2.0.0 Changed API to so you now set global config on the config object instead of the root export itself (e.g. `require('mongo-cursor-pagination').config.MAX_LIMIT = 100`). The default `MAX_LIMIT` is now a more reasonable 25 instead of 100. Added `search()`. Fixed edge case where pages will be incorrect if paginatedField has duplicate values.
+* 2.0.0 Changed API to so you now set global config on the config object instead of the root export itself (e.g.
+  `require('mongo-cursor-pagination').config.MAX_LIMIT = 100`). The default `MAX_LIMIT` is now a more reasonable 25 instead of 100. Added `search()`. Fixed edge
+  case where pages will be incorrect if paginatedField has duplicate values.
 
 * 1.1.0 Add `MAX_LIMIT` global setting to clamp
 
